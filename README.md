@@ -1,7 +1,7 @@
 # SillyTavern 文生图 (st-chatu8)
 
 **作者:** 从前跟你一样
-**版本:** 1.0.0
+**版本:** 3.2.3
 
 这是一个为 [SillyTavern](https://github.com/SillyTavern/SillyTavern) 设计的第三方扩展，它将强大的文生图功能无缝集成到您的聊天体验中。通过简单的标记，您可以在对话中直接调用 Stable Diffusion、NovelAI 或 ComfyUI，将文字描述变为生动的图像。
 
@@ -28,12 +28,13 @@
 
 ## 🚀 安装
 
-1.  在 SillyTavern 的扩展菜单中，从以下 URL 安装插件：
-    ```
-    https://github.com/damoshen123/st-chatu8
-    ```
-2.  重启 SillyTavern。
-3.  在扩展菜单中启用 "st-chatu8"。
+1.  如果已安装原版智绘姬，在 SillyTavern 的「管理扩展」中停用它。
+2.  在「安装扩展」中输入 `https://github.com/Morol1225/selfuse-zhihuiji`。酒馆会创建 `selfuse-zhihuiji` 扩展目录。
+3.  刷新页面并启用「st-chatu8 智绘姬（角色 DNA 融合版）」。
+
+同一个酒馆用户可直接读取原有的智绘姬设置和配置档案。浏览器本地保存的参考图和缓存可以在原站点、原浏览器配置中继续读取。
+
+安装切换、档案库和 V5 精准参考的用法见 [说明.md](说明.md)。
 
 ## 📖 使用方法
 
@@ -99,6 +100,14 @@
 
 ---
 享受在 SillyTavern 中自由创作的乐趣吧！
+
+## 角色 DNA 档案库
+
+智绘姬 3.2.3 集成了由 moran99123 开发的角色 DNA 2.9.33，附带三个上下文预设及同人资料库。首次使用同人资料库时，可从「分类操作」选择「重载内置库」。[上游 DNA 分支](https://github.com/damoshen123/st-chatu8/tree/dna%E5%88%86%E6%94%AF%E6%AD%A3%E5%BC%8F%E7%89%88)
+
+打开智绘姬设置中的「档案库」，选择已有的 LLM 配置并启用记录。可按角色卡或存档分库，也可从聊天正文的双击菜单选择「档案生成」。
+
+若已安装独立的 `st-chatu8-dna`，停用独立扩展后刷新页面即可切到内置版。内置版读取同一份 DNA 设置和档案。
 
 ## ACU 条目重建兼容
 

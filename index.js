@@ -2,6 +2,7 @@
  * ====================================================
  * st-chatu8 (智绘姬) - SillyTavern 文生图扩展
  * Copyright (C) 从前跟你一样 (github.com/damoshen123)
+ * 2026-11-26 Codex：修复 V5 精准参考图分辨率，接入角色 DNA 2.9.33，支持以私人仓库名安装。
  *
  * 【授权声明】
  * 本程序依据 Aladdin Free Public License (AFPL) 第 9 版授权，
@@ -2314,14 +2315,15 @@ var init_defaultToolCallConfig = __esm({
 });
 
 // utils/config.js
-var extensionName, extensionFolderPath, EventType, eventNames, LLMRequestTypes, defaultThemes, defaultSettings;
+var extensionName, extensionFolderPath, extensionFolderName, EventType, eventNames, LLMRequestTypes, defaultThemes, defaultSettings;
 var init_config = __esm({
   "utils/config.js"() {
     init_workers();
     init_themePresets();
     init_defaultToolCallConfig();
     extensionName = "st-chatu8";
-    extensionFolderPath = `scripts/extensions/third-party/${extensionName}`;
+    extensionFolderPath = new URL(".", import.meta.url).pathname.replace(/\/$/, "");
+    extensionFolderName = decodeURIComponent(extensionFolderPath.split("/").pop());
     EventType = {
       GENERATE_IMAGE_REQUEST: "generate-image-request",
       GENERATE_IMAGE_RESPONSE: "generate-image-response"
@@ -8929,48 +8931,11 @@ function deepMerge(target, source) {
   }
   return output;
 }
-async function processReferenceImage(inputBase64) {
+async function processReferenceImage(inputBase64, { v5PreciseReference = false } = {}) {
   addLog("\u5F00\u59CB\u5904\u7406\u53C2\u8003\u56FE...");
-  return new Promise((resolve, reject) => {
-    const img = new Image();
-    img.onload = function() {
-      const originalWidth = img.width;
-      const originalHeight = img.height;
-      const aspectRatio = originalWidth / originalHeight;
-      addLog(`\u53C2\u8003\u56FE\u539F\u59CB\u5C3A\u5BF8: ${originalWidth}x${originalHeight}, \u5BBD\u9AD8\u6BD4: ${aspectRatio.toFixed(2)}`);
-      const targetSizes = [
-        { width: 1024, height: 1536, ratio: 1024 / 1536 },
-        // 竖图
-        { width: 1472, height: 1472, ratio: 1 },
-        // 方图
-        { width: 1536, height: 1024, ratio: 1536 / 1024 }
-        // 横图
-      ];
-      let selectedSize = targetSizes[0];
-      let minDiff = Math.abs(aspectRatio - targetSizes[0].ratio);
-      for (let i = 1; i < targetSizes.length; i++) {
-        const diff = Math.abs(aspectRatio - targetSizes[i].ratio);
-        if (diff < minDiff) {
-          minDiff = diff;
-          selectedSize = targetSizes[i];
-        }
-      }
-      const canvas = document.createElement("canvas");
-      canvas.width = selectedSize.width;
-      canvas.height = selectedSize.height;
-      const ctx = canvas.getContext("2d");
-      ctx.imageSmoothingEnabled = true;
-      ctx.imageSmoothingQuality = "high";
-      ctx.drawImage(img, 0, 0, selectedSize.width, selectedSize.height);
-      addLog(`\u6B63\u5728\u7F29\u653E\u53C2\u8003\u56FE...`);
-      let processedBase64;
-      if (isMobileDevice()) {
-        processedBase64 = canvas.toDataURL("image/jpeg", 0.3).replace(/^data:image\/jpeg;base64,/, "");
-      } else {
-        processedBase64 = canvas.toDataURL("image/png").replace(/^data:image\/png;base64,/, "");
-      }
-      resolve(processedBase64);
-    };
+  const img = new Image();
+  await new Promise((resolve, reject) => {
+    img.onload = resolve;
     img.onerror = (err) => {
       const errorMessage = err instanceof Error ? err.message : "\u672A\u77E5\u9519\u8BEF";
       addLog(`\u53C2\u8003\u56FE\u52A0\u8F7D\u5931\u8D25: ${errorMessage}`);
@@ -8983,6 +8948,51 @@ async function processReferenceImage(inputBase64) {
     }
     img.src = imgSrc;
   });
+  const originalWidth = img.naturalWidth;
+  const originalHeight = img.naturalHeight;
+  const aspectRatio = originalWidth / originalHeight;
+  addLog(`\u53C2\u8003\u56FE\u539F\u59CB\u5C3A\u5BF8: ${originalWidth}x${originalHeight}, \u5BBD\u9AD8\u6BD4: ${aspectRatio.toFixed(2)}`);
+  const targetSizes = v5PreciseReference ? [
+    { width: 832, height: 1216 },
+    { width: 1024, height: 1024 },
+    { width: 1216, height: 832 }
+  ] : [
+    { width: 1024, height: 1536 },
+    { width: 1472, height: 1472 },
+    { width: 1536, height: 1024 }
+  ];
+  let selectedSize = targetSizes[0];
+  let minDiff = Infinity;
+  for (const size of targetSizes) {
+    const targetRatio = size.width / size.height;
+    // Compare proportional padding when selecting the V5 canvas.
+    const diff = v5PreciseReference ? Math.abs(Math.log(aspectRatio / targetRatio)) : Math.abs(aspectRatio - targetRatio);
+    if (diff < minDiff) {
+      minDiff = diff;
+      selectedSize = size;
+    }
+  }
+  const canvas = document.createElement("canvas");
+  canvas.width = selectedSize.width;
+  canvas.height = selectedSize.height;
+  const ctx = canvas.getContext("2d");
+  ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingQuality = "high";
+  if (v5PreciseReference) {
+    const scale = Math.min(canvas.width / originalWidth, canvas.height / originalHeight);
+    const drawWidth = originalWidth * scale;
+    const drawHeight = originalHeight * scale;
+    ctx.fillStyle = "#000";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.drawImage(img, (canvas.width - drawWidth) / 2, (canvas.height - drawHeight) / 2, drawWidth, drawHeight);
+  } else {
+    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+  }
+  addLog(`\u53C2\u8003\u56FE\u7F29\u653E\u81F3: ${canvas.width}x${canvas.height}`);
+  if (isMobileDevice()) {
+    return canvas.toDataURL("image/jpeg", 0.3).replace(/^data:image\/jpeg;base64,/, "");
+  }
+  return canvas.toDataURL("image/png").replace(/^data:image\/png;base64,/, "");
 }
 function calculateSkipCfgAboveSigma(width, height, modelName) {
   addLog(`\u8BA1\u7B97 skip_cfg_above_sigma... \u5BBD\u5EA6: ${width}, \u9AD8\u5EA6: ${height}, \u6A21\u578B: ${modelName}`);
@@ -81012,7 +81022,7 @@ function initAiAssistant(modal) {
       return;
     }
     const chatBody = dom.chatBody;
-    const icon = '<img src="/scripts/extensions/third-party/st-chatu8/html/settings/\u667A\u7ED8\u59EC\u5934\u50CF.png" alt="\u667A\u7ED8\u59EC" style="width: 100%; height: 100%; object-fit: cover; border-radius: 50%; image-rendering: -webkit-optimize-contrast; image-rendering: crisp-edges;">';
+    const icon = `<img src="${DEFAULT_AVATARS.persona}" alt="\u667A\u7ED8\u59EC" style="width: 100%; height: 100%; object-fit: cover; border-radius: 50%; image-rendering: -webkit-optimize-contrast; image-rendering: crisp-edges;">`;
     const messageHtml = `
             <div class="st-chatu8-ai-msg system-msg">
                 <div class="msg-avatar">${icon}</div>
@@ -87334,7 +87344,7 @@ async function applyPreciseCharacterReferenceGroup(preset_data) {
         addLog(`[PreciseCharRef] \u8B66\u544A: \u672A\u627E\u5230\u7CBE\u51C6\u53C2\u8003\u56FE\u50CF: ${ref.imageId.substring(0, 12)}...`);
         continue;
       }
-      const processedImage = await processReferenceImage(imageDataUrl);
+      const processedImage = await processReferenceImage(imageDataUrl, { v5PreciseReference: true });
       const cacheSecretKey = generateRandomUUID();
       const baseCaption = resolvePreciseBaseCaption(ref);
       preset_data.director_reference_images_cached.push({
@@ -90995,7 +91005,7 @@ async function checkForUpdates() {
   const updateStatusElement = document.getElementById("ch-update-status");
   console.log("Checking for updates...");
   try {
-    const remoteManifestUrl = `https://raw.githubusercontent.com/damoshen123/st-chatu8/master/manifest.json?t=${(/* @__PURE__ */ new Date()).getTime()}`;
+    const remoteManifestUrl = `${REMOTE_MANIFEST_URL}?t=${Date.now()}`;
     const response = await fetch(remoteManifestUrl, { cache: "no-cache" });
     if (!response.ok) {
       console.error("Failed to fetch remote manifest for update check.");
@@ -107267,6 +107277,7 @@ init_debugLogger();
 init_assistantFloorMessage();
 
 
+var recordDnaFloor;
 function collectElementInfo(element, label) {
   if (!element) return { label, element: null };
   const mesParent = element.closest?.(".mes");
@@ -107435,6 +107446,25 @@ function showClickActionBubble(point, targetElement) {
         handlePersonaGenFromClick(targetElement);
       }
     },
+    dnaRecord: {
+      text: "档案生成",
+      icon: "fa-solid fa-dna",
+      description: "根据这一层正文生成或更新角色档案",
+      action: () => {
+        const recordFloor = recordDnaFloor ?? window.__DNA_RECORD_FLOOR__;
+        if (typeof recordFloor !== "function") {
+          toastr.warning("角色档案库尚未加载");
+          return;
+        }
+        const mes = (findMesTextFromElement(targetElement) || targetElement)?.closest(".mes[mesid]");
+        const mesId = mes?.getAttribute("mesid");
+        const floor = mesId ? Number(mesId) : NaN;
+        const hasFloor = Number.isInteger(floor) && floor >= 0;
+        if (recordFloor(hasFloor ? floor : null)) {
+          toastr.info(hasFloor ? `正在生成第 ${floor} 层的档案…` : "正在根据最近一层 AI 回复生成档案…");
+        }
+      }
+    },
     deleteUnlocked: {
       text: "\u5220\u9664\u975E\u9501\u5B9A\u56FE\u7247",
       icon: "fa-solid fa-trash",
@@ -107518,6 +107548,7 @@ function showClickActionBubble(point, targetElement) {
         allActions.imageGen,
         allActions.visualPrep,
         allActions.charDesign,
+        allActions.dnaRecord,
         {
           text: "\u4E0B\u4E00\u9875",
           icon: "fa-solid fa-arrow-right",
@@ -113404,6 +113435,9 @@ async function initUI({ check_update: check_update2 }) {
     if (!response.ok) throw new Error("Failed to fetch settings.html");
     const settingsHtml = await response.text();
     document.body.insertAdjacentHTML("beforeend", settingsHtml);
+    document.querySelectorAll("img[data-chatu8-avatar]").forEach((img) => {
+      img.src = DEFAULT_AVATARS.persona;
+    });
   } catch (error) {
     console.error("Chatu8 UI Error: Could not load main settings panel.", error);
     return;
@@ -115179,12 +115213,6 @@ function getRequestHeaders2(token2) {
     "Content-Type": "application/json"
   };
 }
-function getExtensionType(externalId) {
-  const id = Object.keys(extensionTypes).find(
-    (id2) => id2 === externalId || id2.startsWith("third-party") && id2.endsWith(externalId)
-  );
-  return id ? extensionTypes[id] : "local";
-}
 async function update_extension(extensionname, global) {
   let freshToken = window.token || token;
   try {
@@ -115224,7 +115252,8 @@ function setUpdateStatus(text, cls) {
     el.className = `st-chatu8-update-status ${cls || ""}`.trim();
   }
 }
-var REINSTALL_GIT_URL = "https://github.com/damoshen123/st-chatu8.git";
+var REINSTALL_GIT_URL = "https://github.com/Morol1225/selfuse-zhihuiji.git";
+var REMOTE_MANIFEST_URL = "https://raw.githubusercontent.com/Morol1225/selfuse-zhihuiji/main/manifest.json";
 function showReinstallGuide(reason) {
   const existing = document.getElementById("st-chatu8-reinstall-guide");
   if (existing) existing.remove();
@@ -115257,7 +115286,7 @@ function showReinstallGuide(reason) {
                 <ol style="padding-left:22px; margin:8px 0;">
                     <li>\u70B9\u51FB\u9152\u9986<b>\u53F3\u4E0A\u89D2\u7684\u5C0F\u7BB1\u5B50\u56FE\u6807</b>\uFF08\u6269\u5C55 / Extensions\uFF09\u3002</li>
                     <li>\u70B9\u51FB\u91CC\u9762\u7684\u300C<b>\u7BA1\u7406\u63D2\u4EF6</b>\u300D\uFF08Manage extensions\uFF09\u3002</li>
-                    <li>\u627E\u5230 <code>st-chatu8</code>\uFF0C\u70B9\u51FB\u5176\u53F3\u4FA7\u7684<b>\u5220\u9664</b>\u6309\u94AE\u5378\u8F7D\u3002</li>
+                    <li>\u627E\u5230 <code>${escapeHtml5(extensionFolderName)}</code>\uFF0C\u70B9\u51FB\u5176\u53F3\u4FA7\u7684<b>\u5220\u9664</b>\u6309\u94AE\u5378\u8F7D\u3002</li>
                     <li>\u56DE\u5230\u6269\u5C55\u9762\u677F\uFF0C\u70B9\u51FB\u300C<b>\u5B89\u88C5\u6269\u5C55</b>\u300D\uFF08Install extension\uFF09\uFF0C\u7C98\u8D34\u4E0B\u9762\u7684\u5B89\u88C5\u5730\u5740\u5E76\u786E\u8BA4\u5B89\u88C5\uFF1A</li>
                 </ol>
                 <p style="margin:8px 0; padding:8px 10px; border-radius:6px;
@@ -115350,7 +115379,7 @@ function showReinstallGuide(reason) {
   });
 }
 async function check_update() {
-  const type = getExtensionType(extensionName);
+  const type = extensionTypes[`third-party/${extensionFolderName}`] || extensionTypes[extensionFolderName];
   const global = type === "global";
   const reload = () => {
     toastr.success(`\u6210\u529F\u66F4\u65B0\u63D2\u4EF6\uFF0C4 \u79D2\u540E\u81EA\u52A8\u5237\u65B0\u9875\u9762`);
@@ -115360,7 +115389,7 @@ async function check_update() {
   };
   let update_response;
   try {
-    update_response = await update_extension(extensionName, global);
+    update_response = await update_extension(extensionFolderName, global);
   } catch (err) {
     console.error("\u8C03\u7528\u66F4\u65B0\u63A5\u53E3\u5931\u8D25\uFF1A", err);
     toastr.error(`\u65E0\u6CD5\u8FDE\u63A5\u5230\u9152\u9986\u66F4\u65B0\u63A5\u53E3\uFF1A${err && err.message ? err.message : err}`, "\u66F4\u65B0\u5931\u8D25");
@@ -115481,7 +115510,7 @@ async function checkForUpdates2() {
   const updateNotesElement = document.getElementById("ch-update-notes");
   console.log("Checking for updates...", updateNotesElement);
   try {
-    const remoteManifestUrl = `https://raw.githubusercontent.com/damoshen123/st-chatu8/master/manifest.json?t=${(/* @__PURE__ */ new Date()).getTime()}`;
+    const remoteManifestUrl = `${REMOTE_MANIFEST_URL}?t=${Date.now()}`;
     const response = await fetch(remoteManifestUrl, { cache: "no-cache" });
     if (!response.ok) {
       console.error("Failed to fetch remote manifest for update check.");
@@ -115555,6 +115584,12 @@ async function main() {
     if (pathsChanged) {
       console.log("[st-chatu8] \u81EA\u52A8\u8FC1\u79FB\u65E7\u7248\u89C6\u9891\u914D\u7F6E\u8DEF\u5F84 -> .chatu8");
     }
+    for (const [state, defaultPath] of Object.entries(defaultSettings.chatu8_fab_video_paths)) {
+      const savedPath = mergedSettings.chatu8_fab_video_paths[state];
+      if (typeof savedPath === "string" && savedPath.replace(/^\//, "") === `scripts/extensions/third-party/${extensionName}/html/settings/${state}.chatu8`) {
+        mergedSettings.chatu8_fab_video_paths[state] = defaultPath;
+      }
+    }
   }
   const configMigrated = migrateToolAndTailConfigIfOldDefault(mergedSettings);
   if (configMigrated) {
@@ -115571,7 +115606,28 @@ async function main() {
   initializeASR();
   setTimeout(addNewElement, 2e3);
   setInterval(chenk, 4e3);
+  loadDnaIntegration().catch((error) => {
+    console.error("[DNA] 角色档案库加载失败", error);
+  });
   await checkForUpdates2();
+}
+async function loadDnaIntegration() {
+  const standalone = Object.keys(extensionTypes).find(
+    (name) => name === "third-party/st-chatu8-dna" || name === "st-chatu8-dna"
+  );
+  if (standalone && !extension_settings117.disabledExtensions?.includes(standalone)) return;
+  const { initializeDna, recordFloor } = await import("./dna.js");
+  initializeDna({
+    transformToolCallRequest,
+    vertex: {
+      getToken: getVertexAccessToken,
+      buildEndpoint: buildVertexEndpoint,
+      convertRequest: convertOpenAIToVertexGemini,
+      convertResponse: convertVertexToOpenAIResponse,
+      convertSSE: convertVertexSSEToOpenAIChunk
+    }
+  });
+  recordDnaFloor = recordFloor;
 }
 function addNewElement() {
   const targetElement = document.querySelector("#option_toggle_AN");
