@@ -1,4 +1,4 @@
-<!-- 2026-11-26 Codex：按当前安装目录加载内置头像。 -->
+<!-- 2026-11-26 Codex：按当前安装目录加载内置头像，添加精准参考悬浮快捷开关。 -->
 <div id="st-chatu8-settings">
     <div id="ch-settings-modal" class="st-chatu8-modal-backdrop" style="display: none;">
         <div class="st-chatu8-modal-content" tabindex="-1">
@@ -418,4 +418,23 @@
     </div>
 <div id="st-chatu8-fab" style="display: none;">
     <i class="fa-solid fa-paintbrush"></i>
+</div>
+<div id="st-chatu8-precise-ref-shortcut" hidden>
+    <div class="st-chatu8-precise-ref-bar" role="group" aria-label="V5 精准参考">
+        <button type="button" class="st-chatu8-precise-ref-toggle" aria-label="精准参考" aria-pressed="false">
+            <i class="fa-solid fa-crosshairs" aria-hidden="true"></i>
+            <span class="st-chatu8-precise-ref-indicator" aria-hidden="true"></span>
+        </button>
+        <button type="button" class="st-chatu8-precise-ref-picker" aria-label="切换精准角色组"
+            aria-expanded="false" aria-controls="st-chatu8-precise-ref-popover">
+            <i class="fa-solid fa-chevron-down" aria-hidden="true"></i>
+        </button>
+    </div>
+    <div id="st-chatu8-precise-ref-popover" class="st-chatu8-precise-ref-popover" role="group" aria-label="精准角色组" hidden>
+        <div class="st-chatu8-precise-ref-heading">
+            <strong>精准角色组</strong>
+            <span>每张 +5 Anlas/次</span>
+        </div>
+        <div class="st-chatu8-precise-ref-groups"></div>
+    </div>
 </div>

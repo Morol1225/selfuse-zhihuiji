@@ -276,3 +276,181 @@
 }
 
 
+/* 2026-11-26 Codex：添加精准参考快捷开关与角色组样式。 */
+#st-chatu8-precise-ref-shortcut {
+    position: fixed;
+    z-index: 1001;
+}
+
+#st-chatu8-precise-ref-shortcut[hidden],
+#st-chatu8-precise-ref-shortcut [hidden] {
+    display: none;
+}
+
+#st-chatu8-precise-ref-shortcut .st-chatu8-precise-ref-bar {
+    --st-chatu8-precise-ref-icon-color: var(--st-chatu8-icon-foreground, #fff);
+    display: grid !important;
+    grid-template-columns: 44px 34px;
+    align-items: stretch;
+    box-sizing: border-box;
+    width: auto !important;
+    min-width: 0 !important;
+    height: auto !important;
+    padding: 0 !important;
+    text-indent: 0 !important;
+    transform: none !important;
+    overflow: hidden;
+    background: var(--st-chatu8-accent-primary, #4a90d9);
+    color: #fff;
+    border-radius: 8px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.22);
+}
+
+#st-chatu8-precise-ref-shortcut .st-chatu8-precise-ref-bar::before,
+#st-chatu8-precise-ref-shortcut .st-chatu8-precise-ref-bar::after {
+    display: none;
+}
+
+#st-chatu8-precise-ref-shortcut button {
+    all: unset;
+    box-sizing: border-box;
+    cursor: pointer;
+}
+
+#st-chatu8-precise-ref-shortcut button:focus-visible {
+    outline: 2px solid currentColor;
+    outline-offset: -3px;
+}
+
+#st-chatu8-precise-ref-shortcut .st-chatu8-precise-ref-bar button {
+    position: relative;
+    display: grid;
+    place-items: center;
+    min-height: 44px;
+    touch-action: manipulation;
+}
+
+#st-chatu8-precise-ref-shortcut .st-chatu8-precise-ref-bar button:hover,
+#st-chatu8-precise-ref-shortcut .st-chatu8-precise-ref-picker[aria-expanded="true"] {
+    background: rgba(127, 127, 127, 0.18);
+    background: color-mix(in srgb, currentColor 13%, transparent);
+}
+
+.st-chatu8-precise-ref-toggle > i {
+    font-size: 19px;
+}
+
+.st-chatu8-precise-ref-toggle[aria-pressed="false"] > i {
+    opacity: 0.68;
+}
+
+.st-chatu8-precise-ref-indicator {
+    position: absolute;
+    right: 9px;
+    bottom: 9px;
+    width: 7px;
+    height: 7px;
+    border: 1px solid currentColor;
+    border-radius: 50%;
+    opacity: 0.6;
+}
+
+.st-chatu8-precise-ref-toggle[aria-pressed="true"] .st-chatu8-precise-ref-indicator {
+    background: #6af2a9;
+    border-color: #185638;
+    box-shadow: 0 0 5px rgba(50, 224, 133, 0.45);
+    opacity: 1;
+}
+
+.st-chatu8-precise-ref-picker::before {
+    content: "";
+    position: absolute;
+    inset-block: 12px;
+    left: 0;
+    border-left: 1px solid currentColor;
+    opacity: 0.28;
+}
+
+.st-chatu8-precise-ref-picker > i {
+    font-size: 11px;
+}
+
+.st-chatu8-precise-ref-picker[aria-expanded="true"] > i {
+    transform: rotate(180deg);
+}
+
+.st-chatu8-precise-ref-popover {
+    position: absolute;
+    top: calc(100% + 8px);
+    box-sizing: border-box;
+    width: min(244px, calc(100vw - 16px));
+    padding: 6px;
+    overflow: auto;
+    overscroll-behavior: contain;
+    color: var(--st-chatu8-text-primary, #222);
+    background: var(--st-chatu8-bg-secondary, #fff);
+    border: 1px solid var(--st-chatu8-border-color, #bbb);
+    border-radius: 12px;
+    box-shadow: 0 8px 26px rgba(0, 0, 0, 0.25);
+    scrollbar-width: thin;
+}
+
+.st-chatu8-precise-ref-popover[data-side="above"] {
+    top: auto;
+    bottom: calc(100% + 8px);
+}
+
+.st-chatu8-precise-ref-heading {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 4px 8px;
+    padding: 7px 8px 9px;
+    font-size: 13px;
+}
+
+.st-chatu8-precise-ref-heading > span,
+.st-chatu8-precise-ref-count {
+    color: var(--st-chatu8-text-secondary, #555);
+    font-size: 11px;
+    white-space: nowrap;
+}
+
+#st-chatu8-precise-ref-shortcut .st-chatu8-precise-ref-option {
+    display: grid;
+    grid-template-columns: 14px minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    min-height: 42px;
+    padding: 7px 9px;
+    border-radius: 7px;
+    font-size: 13px;
+}
+
+#st-chatu8-precise-ref-shortcut .st-chatu8-precise-ref-option:hover,
+#st-chatu8-precise-ref-shortcut .st-chatu8-precise-ref-option[aria-pressed="true"] {
+    background: var(--st-chatu8-bg-tertiary, #eceff3);
+}
+
+.st-chatu8-precise-ref-option[aria-pressed="false"] > i {
+    visibility: hidden;
+}
+
+.st-chatu8-precise-ref-option > i {
+    color: var(--st-chatu8-accent-primary, #4a90d9);
+}
+
+.st-chatu8-precise-ref-name {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    #st-chatu8-precise-ref-shortcut .st-chatu8-precise-ref-bar {
+        animation: none;
+        transition: none;
+    }
+}

@@ -2,7 +2,7 @@
  * ====================================================
  * st-chatu8 (智绘姬) - SillyTavern 文生图扩展
  * Copyright (C) 从前跟你一样 (github.com/damoshen123)
- * 2026-11-26 Codex：修复 V5 精准参考图分辨率，接入角色 DNA 2.9.33，支持以私人仓库名安装。
+ * 2026-11-26 Codex：修复 V5 精准参考图分辨率并添加悬浮快捷开关，接入角色 DNA 2.9.33，适配私人仓库安装。
  *
  * 【授权声明】
  * 本程序依据 Aladdin Free Public License (AFPL) 第 9 版授权，
@@ -12376,8 +12376,10 @@ function applyFabSettings() {
   console.log("enable_chatu8_fab:", settings3.enable_chatu8_fab, "Type:", typeof settings3.enable_chatu8_fab);
   console.log("enable_chatu8_fab_video:", settings3.enable_chatu8_fab_video, "Type:", typeof settings3.enable_chatu8_fab_video);
   console.log("chatu8_fab_video_paths:", settings3.chatu8_fab_video_paths);
-  if (String(settings3.enable_chatu8_fab) === "true") {
-    fab.show();
+  const enabled = String(settings3.enable_chatu8_fab) === "true";
+  fab.toggle(enabled);
+  refreshFabPreciseReference?.();
+  if (enabled) {
     const videoModeEnabled = settings3.enable_chatu8_fab_video === true || settings3.enable_chatu8_fab_video === "true";
     if (videoModeEnabled) {
       fab.addClass("st-chatu8-fab-video-mode");
@@ -12510,11 +12512,8 @@ function applyFabSettings() {
     const position = isMobile3 ? settings3.chatu8_fab_position.mobile || defaultSettings.chatu8_fab_position.mobile : settings3.chatu8_fab_position.desktop || defaultSettings.chatu8_fab_position.desktop;
     fab.css("top", position.top);
     fab.css("left", position.left);
-  } else {
-    fab.hide();
-    if (globalVideoPlayer) {
-      globalVideoPlayer.pause();
-    }
+  } else if (globalVideoPlayer) {
+    globalVideoPlayer.pause();
   }
 }
 function updateFabSize(size) {
@@ -12594,7 +12593,7 @@ function applyGenerateButtonStyle(styleName, isDark = true) {
     document.head.appendChild(styleEl);
   }
   let css = "";
-  const btnSelector = ".st-chatu8-image-button";
+  const btnSelector = ":is(.st-chatu8-image-button, .st-chatu8-precise-ref-bar)";
   const keyframes = `
         @keyframes st-chatu8-pulse {
             0% { box-shadow: 0 0 0 0 rgba(0, 255, 255, 0.4); }
@@ -13058,7 +13057,7 @@ function applyGenerateButtonStyle(styleName, isDark = true) {
       css += `
                 ${btnSelector} {
                     background: linear-gradient(135deg, #667eea, #764ba2) !important;
-                    color: transparent !important;
+                    color: var(--st-chatu8-precise-ref-icon-color, transparent) !important;
                     font-size: 0 !important;
                     text-indent: -9999px !important;
                     width: 40px !important;
@@ -13466,7 +13465,8 @@ function applyGenerateButtonStyle(styleName, isDark = true) {
       css += `
                 ${btnSelector} {
                     background: linear-gradient(135deg, #56ab2f 0%, #7bc043 50%, #a8e063 100%) !important;
-                    color: transparent !important;
+                    --st-chatu8-icon-foreground: #19370e;
+                    color: var(--st-chatu8-precise-ref-icon-color, transparent) !important;
                     font-size: 0 !important;
                     text-indent: -9999px !important;
                     width: 42px !important;
@@ -13515,7 +13515,8 @@ function applyGenerateButtonStyle(styleName, isDark = true) {
       css += `
                 ${btnSelector} {
                     background: linear-gradient(135deg, #ff9a9e 0%, #fecfef 50%, #ffb6c1 100%) !important;
-                    color: transparent !important;
+                    --st-chatu8-icon-foreground: #642d4a;
+                    color: var(--st-chatu8-precise-ref-icon-color, transparent) !important;
                     font-size: 0 !important;
                     text-indent: -9999px !important;
                     width: 42px !important;
@@ -13562,7 +13563,7 @@ function applyGenerateButtonStyle(styleName, isDark = true) {
       css += `
                 ${btnSelector} {
                     background: linear-gradient(135deg, rgba(84, 13, 171, 1) 0%, rgba(60, 80, 180, 1) 50%, rgba(32, 167, 254, 1) 100%) !important;
-                    color: transparent !important;
+                    color: var(--st-chatu8-precise-ref-icon-color, transparent) !important;
                     font-size: 0 !important;
                     text-indent: -9999px !important;
                     width: 42px !important;
@@ -13619,7 +13620,8 @@ function applyGenerateButtonStyle(styleName, isDark = true) {
       css += `
                 ${btnSelector} {
                     background: linear-gradient(145deg, rgba(0, 25, 50, 0.98), rgba(0, 15, 35, 1)) !important;
-                    color: transparent !important;
+                    --st-chatu8-icon-foreground: #00ffff;
+                    color: var(--st-chatu8-precise-ref-icon-color, transparent) !important;
                     font-size: 0 !important;
                     text-indent: -9999px !important;
                     width: 42px !important;
@@ -13669,7 +13671,7 @@ function applyGenerateButtonStyle(styleName, isDark = true) {
                     background: 
                         radial-gradient(circle at 30% 30%, rgba(255, 255, 255, 0.35) 0%, rgba(255, 255, 255, 0) 40%),
                         linear-gradient(135deg, #23d5ab 0%, #23a6d5 40%, #9c5bd5 70%, #e73c7e 100%) !important;
-                    color: transparent !important;
+                    color: var(--st-chatu8-precise-ref-icon-color, transparent) !important;
                     font-size: 0 !important;
                     text-indent: -9999px !important;
                     width: 42px !important;
@@ -14576,6 +14578,7 @@ function theme_change() {
   settings.theme_id = newThemeId;
   currentPreviewTheme = JSON.parse(JSON.stringify(settings.themes[newThemeId]));
   applyTheme(currentPreviewTheme);
+  applyGenerateButtonStyle(settings.generate_btn_style, isThemeDark(currentPreviewTheme));
   populateThemeColorPickers(newThemeId);
   saveSettingsDebounced5();
 }
@@ -15241,7 +15244,146 @@ var init_fabBubble = __esm({
 
 // utils/settings/fab.js
 
+var refreshFabPreciseReference;
 
+function canUseFabPreciseReference(settings) {
+  const model = settings.novelaimode;
+  return settings.mode === "novelai" && settings.client !== "jiuguan"
+    && (model === "nai-diffusion-5-curated" || (model === "nai-diffusion-5-full" && settings.novelai_v5_effort !== "medium"));
+}
+function initFabPreciseReference(fab) {
+  const shortcut = document.getElementById("st-chatu8-precise-ref-shortcut");
+  if (!shortcut) return;
+  const bar = shortcut.querySelector(".st-chatu8-precise-ref-bar");
+  const toggle = shortcut.querySelector(".st-chatu8-precise-ref-toggle");
+  const picker = shortcut.querySelector(".st-chatu8-precise-ref-picker");
+  const popover = shortcut.querySelector(".st-chatu8-precise-ref-popover");
+  const groupList = shortcut.querySelector(".st-chatu8-precise-ref-groups");
+  const getSettings = () => extension_settings63[extensionName];
+  const gap = 8;
+  const edge = 8;
+  const clampToViewport = (position, size, viewport) => Math.max(edge, Math.min(position, viewport - size - edge));
+  let positionFrame = 0;
+
+  function positionShortcut() {
+    if (shortcut.hidden) return;
+    const rect = fab.getBoundingClientRect();
+    const width = bar.offsetWidth;
+    const height = bar.offsetHeight;
+    const viewportWidth = document.documentElement.clientWidth;
+    const viewportHeight = window.innerHeight;
+    const roomRight = viewportWidth - rect.right - gap - edge;
+    const roomLeft = rect.left - gap - edge;
+    const preferRight = roomRight >= width || roomRight >= roomLeft;
+    let left = preferRight ? rect.right + gap : rect.left - gap - width;
+    let top = rect.top + (rect.height - height) / 2;
+    if (Math.max(roomRight, roomLeft) < width) {
+      const roomBelow = viewportHeight - rect.bottom - gap - edge;
+      const roomAbove = rect.top - gap - edge;
+      if (Math.max(roomBelow, roomAbove) >= height) {
+        left = rect.left + (rect.width - width) / 2;
+        top = roomBelow >= height ? rect.bottom + gap : rect.top - gap - height;
+      }
+    }
+    left = clampToViewport(left, width, viewportWidth);
+    top = clampToViewport(top, height, viewportHeight);
+    shortcut.style.left = `${left}px`;
+    shortcut.style.top = `${top}px`;
+    if (!popover.hidden) {
+      const above = top - edge - gap;
+      const below = viewportHeight - top - height - edge - gap;
+      const openAbove = below < Math.min(popover.scrollHeight, 280) && above > below;
+      popover.dataset.side = openAbove ? "above" : "below";
+      popover.style.maxHeight = `${Math.min(280, Math.max(0, openAbove ? above : below))}px`;
+      popover.style.left = `${clampToViewport(left, popover.offsetWidth, viewportWidth) - left}px`;
+    }
+  }
+  function schedulePosition() {
+    if (shortcut.hidden || positionFrame) return;
+    positionFrame = requestAnimationFrame(() => {
+      positionFrame = 0;
+      positionShortcut();
+    });
+  }
+  function closeGroups(restoreFocus = false) {
+    if (popover.hidden) return;
+    popover.hidden = true;
+    picker.setAttribute("aria-expanded", "false");
+    if (restoreFocus) picker.focus({ preventScroll: true });
+  }
+  function refresh() {
+    const settings3 = getSettings();
+    shortcut.hidden = !canUseFabPreciseReference(settings3) || fab.style.display === "none";
+    if (shortcut.hidden) {
+      closeGroups();
+      return;
+    }
+    const enabled = isSettingTrue3(settings3.nai5PreciseCharRef);
+    toggle.setAttribute("aria-pressed", String(enabled));
+    toggle.title = enabled ? "关闭精准参考" : "开启精准参考 · 每次生图每张参考图 5 Anlas";
+    picker.title = `切换精准角色组 · ${settings3.preciseCharRefGroupId || DEFAULT_GROUP_NAME}`;
+    schedulePosition();
+  }
+
+  toggle.addEventListener("click", () => {
+    const settings3 = getSettings();
+    if (!canUseFabPreciseReference(settings3)) return;
+    closeGroups();
+    setPreciseReferenceEnabled(!isSettingTrue3(settings3.nai5PreciseCharRef));
+  });
+  picker.addEventListener("click", () => {
+    if (!popover.hidden) {
+      closeGroups();
+      return;
+    }
+    const settings3 = getSettings();
+    if (!canUseFabPreciseReference(settings3)) return;
+    const groups = ensurePreciseCharRefGroups();
+    const choices = getPreciseGroupNames(groups).map((name) => {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = "st-chatu8-precise-ref-option";
+      button.setAttribute("aria-pressed", String(name === settings3.preciseCharRefGroupId));
+      button.title = name;
+      button.innerHTML = '<i class="fa-solid fa-check" aria-hidden="true"></i><span class="st-chatu8-precise-ref-name"></span><span class="st-chatu8-precise-ref-count"></span>';
+      button.querySelector(".st-chatu8-precise-ref-name").textContent = name;
+      const count = groups[name].references.filter((ref) => ref.enabled && ref.imageId).length;
+      button.querySelector(".st-chatu8-precise-ref-count").textContent = `${count} 张`;
+      button.addEventListener("click", () => {
+        setPreciseReferenceGroup(name);
+        closeGroups(true);
+      });
+      return button;
+    });
+    groupList.replaceChildren(...choices);
+    popover.hidden = false;
+    picker.setAttribute("aria-expanded", "true");
+    positionShortcut();
+    const selected = groupList.querySelector('[aria-pressed="true"]');
+    selected?.focus({ preventScroll: true });
+    selected?.scrollIntoView({ block: "nearest" });
+  });
+  document.addEventListener("pointerdown", (event) => {
+    if (!shortcut.contains(event.target)) closeGroups();
+  });
+  shortcut.addEventListener("keydown", (event) => {
+    if (event.key === "Escape" && !popover.hidden) {
+      event.stopPropagation();
+      closeGroups(true);
+    }
+  });
+  shortcut.addEventListener("focusout", (event) => {
+    if (!shortcut.contains(event.relatedTarget)) closeGroups();
+  });
+  new MutationObserver(schedulePosition).observe(fab, { attributes: true, attributeFilter: ["style"] });
+  if (typeof ResizeObserver === "function") {
+    const resizeObserver = new ResizeObserver(schedulePosition);
+    resizeObserver.observe(fab);
+    resizeObserver.observe(bar);
+  }
+  window.addEventListener("resize", schedulePosition);
+  return refresh;
+}
 function ensureFabCenterInViewport() {
   const fab = document.getElementById("st-chatu8-fab");
   if (!fab) return;
@@ -15276,6 +15418,7 @@ function ensureFabCenterInViewport() {
 function initFab() {
   let fab = document.getElementById("st-chatu8-fab");
   if (!fab) return;
+  refreshFabPreciseReference = initFabPreciseReference(fab);
   let isDragging = false;
   let hasMoved = false;
   let offsetX, offsetY;
@@ -15303,10 +15446,10 @@ function initFab() {
   const isVideoMode = () => {
     return fab.classList.contains("st-chatu8-fab-video-mode");
   };
-  const isEventFromSettingsPanel = (e) => {
+  const isEventFromChatuControls = (e) => {
     const target = e.target;
     if (!target || typeof target.closest !== "function") return false;
-    return !!target.closest("#ch-settings-modal, #st-chatu8-settings");
+    return !!target.closest("#ch-settings-modal, #st-chatu8-settings, #st-chatu8-precise-ref-shortcut");
   };
   const dragStart = (e) => {
     if (isFabOverlappingDialog()) {
@@ -15508,7 +15651,7 @@ function initFab() {
   });
   document.addEventListener("mousedown", (e) => {
     if (!isVideoMode()) return;
-    if (isEventFromSettingsPanel(e)) {
+    if (isEventFromChatuControls(e)) {
       return;
     }
     if (isFabOverlappingDialog()) {
@@ -15518,7 +15661,7 @@ function initFab() {
   });
   document.addEventListener("touchstart", (e) => {
     if (!isVideoMode()) return;
-    if (isEventFromSettingsPanel(e)) {
+    if (isEventFromChatuControls(e)) {
       return;
     }
     if (isFabOverlappingDialog()) {
@@ -86177,17 +86320,34 @@ function showPreciseStatus(statusDiv, message, type = "info") {
     statusDiv.style.display = "none";
   }, 5e3);
 }
+function getPreciseGroupNames(groups) {
+  return Object.keys(groups).sort((a, b) => {
+    if (a === DEFAULT_GROUP_NAME) return -1;
+    if (b === DEFAULT_GROUP_NAME) return 1;
+    return a.localeCompare(b, "zh-CN");
+  });
+}
+function setPreciseReferenceEnabled(enabled) {
+  const settings3 = extension_settings63[extensionName];
+  settings3.nai5PreciseCharRef = String(enabled);
+  const checkbox = document.getElementById("nai5PreciseCharRef");
+  if (checkbox) checkbox.checked = enabled;
+  saveSettingsDebounced37();
+  refreshFabPreciseReference?.();
+}
+function setPreciseReferenceGroup(name) {
+  const settings3 = extension_settings63[extensionName];
+  if (!Object.hasOwn(settings3.preciseCharRefGroups || {}, name)) return;
+  settings3.preciseCharRefGroupId = name;
+  saveSettingsDebounced37();
+  refreshFabPreciseReference?.();
+}
 function loadPreciseGroupList(selectElement) {
   const settings3 = extension_settings63[extensionName];
   const groups = settings3.preciseCharRefGroups || {};
   const currentGroupId = settings3.preciseCharRefGroupId || DEFAULT_GROUP_NAME;
   selectElement.innerHTML = "";
-  const groupNames = Object.keys(groups).sort((a, b) => {
-    if (a === DEFAULT_GROUP_NAME) return -1;
-    if (b === DEFAULT_GROUP_NAME) return 1;
-    return a.localeCompare(b, "zh-CN");
-  });
-  groupNames.forEach((groupName) => {
+  getPreciseGroupNames(groups).forEach((groupName) => {
     const option = document.createElement("option");
     option.value = groupName;
     option.textContent = groupName;
@@ -86196,6 +86356,7 @@ function loadPreciseGroupList(selectElement) {
     }
     selectElement.appendChild(option);
   });
+  refreshFabPreciseReference?.();
 }
 async function createNewPreciseGroup(selectElement, slotsContainer, addRefBtn, statusDiv) {
   const settings3 = extension_settings63[extensionName];
@@ -86593,7 +86754,6 @@ async function renderPreciseSlots(slotsContainer, groupSelect, addRefBtn, status
 }
 function showPreciseCharRefGroupEditorDialog() {
   const parent = document.getElementById("st-chatu8-settings") || document.body;
-  const settings3 = extension_settings63[extensionName];
   ensurePreciseCharRefGroups();
   const backdrop = document.createElement("div");
   backdrop.className = "st-chatu8-workflow-viz-backdrop";
@@ -86659,8 +86819,7 @@ function showPreciseCharRefGroupEditorDialog() {
   deleteBtn.onclick = () => deleteCurrentPreciseGroup(groupSelect, slotsContainer, addRefBtn, statusDiv);
   addRefBtn.onclick = () => addReferenceToPreciseGroup(groupSelect, slotsContainer, addRefBtn, statusDiv);
   groupSelect.onchange = () => {
-    settings3.preciseCharRefGroupId = groupSelect.value;
-    saveSettingsDebounced37();
+    setPreciseReferenceGroup(groupSelect.value);
     renderPreciseSlots(slotsContainer, groupSelect, addRefBtn, statusDiv);
   };
 }
@@ -94706,6 +94865,7 @@ function refreshNovelaiUIFromSettings(targetModel = null) {
   }
   lastSelectedNovelaiModel = model;
   updateNovelaiModelSchedule(true);
+  refreshFabPreciseReference?.();
 }
 function updateNovelaiOtherSiteVisibility() {
   const novelaiSiteSelect = document.getElementById("novelaisite");
@@ -113412,6 +113572,7 @@ function updateGenerationModeHandlers() {
   replaceWithcomfyui();
   replaceWithBanana();
   replaceWithRunningHub();
+  refreshFabPreciseReference?.();
   addLog("[UI] Generation mode handlers updated for mode: " + extension_settings114[extensionName].mode);
 }
 async function initUI({ check_update: check_update2 }) {
@@ -114712,6 +114873,9 @@ async function initUI({ check_update: check_update2 }) {
           updateKeepAliveStatus();
           updateModeNavVisibility(settingsModal);
         }
+        if (settingKey === "client" || settingKey === "novelaimode" || settingKey === "novelai_v5_effort") {
+          refreshFabPreciseReference?.();
+        }
         if (settingKey === "videoChannel") {
           updateModeNavVisibility(settingsModal);
         }
@@ -114761,15 +114925,13 @@ async function initUI({ check_update: check_update2 }) {
     if (checkbox.prop("checked")) {
       stylishConfirm("\u4E0D\u5EFA\u8BAE\u4F7F\u7528\uFF0C\u6BCF\u591A\u4E00\u5F20\u542F\u7528\u7684\u53C2\u8003\u56FE\u7247\u5C31\u591A\u6536\u8D395\u70B9\uFF0C\u6BCF\u6B21\u751F\u56FE\u6536\u8D39\u4E00\u6B21\uFF01").then((confirmed) => {
         if (confirmed) {
-          settings2.nai5PreciseCharRef = "true";
-          saveSettingsDebounced72();
+          setPreciseReferenceEnabled(true);
         } else {
           checkbox.prop("checked", false);
         }
       });
     } else {
-      settings2.nai5PreciseCharRef = "false";
-      saveSettingsDebounced72();
+      setPreciseReferenceEnabled(false);
     }
   });
   settingsModal.find("#enableVibeGroupTransfer").on("change", function() {
