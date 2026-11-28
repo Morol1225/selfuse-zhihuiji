@@ -1,3 +1,4 @@
+<!-- 2026-11-29 Codex：添加生图标签完成提示音设置。 -->
 <div id="ch-tab-llm">
     <div class="st-chatu8-settings-section">
         <h3>大模型设置</h3>
@@ -20,6 +21,34 @@
                         class="fa-solid fa-trash"></i></button>
             </div>
         </div>
+    </div>
+
+    <div class="st-chatu8-settings-section">
+        <h4><i class="fa-solid fa-bell" aria-hidden="true"></i> 生图标签完成提示音</h4>
+        <div class="st-chatu8-field">
+            <label for="ch-llm_image_gen_sound_enabled">播放提示音</label>
+            <div class="st-chatu8-toggle">
+                <input id="ch-llm_image_gen_sound_enabled" type="checkbox" role="switch"
+                    aria-describedby="ch-llm_image_gen_sound_hint" />
+                <span class="st-chatu8-slider" aria-hidden="true"></span>
+            </div>
+        </div>
+        <div class="st-chatu8-field">
+            <label for="ch-llm_image_gen_sound">音效</label>
+            <div class="st-chatu8-profile-controls">
+                <select id="ch-llm_image_gen_sound" class="st-chatu8-select">
+                    <option value="chime">上扬铃声</option>
+                    <option value="soft">柔和短音</option>
+                    <option value="bright">清脆亮音</option>
+                </select>
+                <button id="ch-llm_image_gen_sound_preview" type="button" class="st-chatu8-icon-btn">
+                    <i class="fa-solid fa-volume-high" aria-hidden="true"></i> 试听
+                </button>
+            </div>
+        </div>
+        <p id="ch-llm_image_gen_sound_hint" style="font-size: 12px; color: var(--st-chatu8-text-secondary);">
+            标签生成成功时响一次。刷新后先点一下酒馆页面，以启用浏览器音频。
+        </p>
     </div>
 
     <div class="st-chatu8-settings-section">

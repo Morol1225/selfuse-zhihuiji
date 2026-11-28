@@ -3,6 +3,7 @@
  * st-chatu8 (智绘姬) - SillyTavern 文生图扩展
  * Copyright (C) 从前跟你一样 (github.com/damoshen123)
  * 2026-11-26 Codex：修复 V5 精准参考图分辨率并添加悬浮快捷开关，接入角色 DNA 2.9.33，适配私人仓库安装。
+ * 2026-11-29 Codex：添加 LLM 生图标签完成提示音。
  *
  * 【授权声明】
  * 本程序依据 Aladdin Free Public License (AFPL) 第 9 版授权，
@@ -2824,6 +2825,8 @@ var init_config = __esm({
       },
       llm_history_depth: 2,
       // 发送历史层数，0表示不发送历史
+      llm_image_gen_sound_enabled: false,
+      llm_image_gen_sound: "chime",
       // 生图生涯统计
       imageGenStats: {
         backends: {
@@ -25657,6 +25660,97 @@ function registerEventListeners() {
   eventSource7.on(eventNames.LLM_USER_PERSONA_GEN_REQUEST, onUserPersonaGenRequest);
   eventSource7.on(eventNames.LLM_USER_PERSONA_GEN_GET_PROMPT_REQUEST, onPersonaGenGetPromptRequest);
 }
+const llmCompletionTones = new Set(["chime", "soft", "bright"]);
+const llmCompletionSoundBuffers = new Map();
+let llmCompletionAudio;
+
+function getLLMCompletionTone(settings) {
+  const tone = settings.llm_image_gen_sound;
+  return llmCompletionTones.has(tone) ? tone : defaultSettings.llm_image_gen_sound;
+}
+
+async function unlockLLMCompletionAudio() {
+  const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+  if (!AudioContextClass) return;
+  try {
+    llmCompletionAudio ??= new AudioContextClass();
+    if (llmCompletionAudio.state !== "running") {
+      await llmCompletionAudio.resume();
+    }
+    return llmCompletionAudio;
+  } catch (error) {
+    console.warn("[st-chatu8] 无法启用 LLM 提示音", error);
+  }
+}
+
+function loadLLMCompletionSound(audioContext, tone) {
+  if (!llmCompletionSoundBuffers.has(tone)) {
+    const url = new URL(`./data/llm-sounds/${tone}.mp3`, import.meta.url);
+    const buffer = fetch(url).then((response) => {
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      return response.arrayBuffer();
+    }).then((data) => audioContext.decodeAudioData(data)).catch((error) => {
+      llmCompletionSoundBuffers.delete(tone);
+      throw error;
+    });
+    llmCompletionSoundBuffers.set(tone, buffer);
+  }
+  return llmCompletionSoundBuffers.get(tone);
+}
+
+async function playLLMCompletionSound(preview = false) {
+  const settings = extension_settings18[extensionName];
+  if (!preview && !isSettingTrue3(settings.llm_image_gen_sound_enabled)) return false;
+  const audioContext = preview ? await unlockLLMCompletionAudio() : llmCompletionAudio;
+  if (audioContext?.state !== "running") return false;
+  try {
+    const buffer = await loadLLMCompletionSound(audioContext, getLLMCompletionTone(settings));
+    if (audioContext.state !== "running" || (!preview && !isSettingTrue3(settings.llm_image_gen_sound_enabled))) return false;
+    const source = audioContext.createBufferSource();
+    source.buffer = buffer;
+    source.connect(audioContext.destination);
+    source.start();
+    return true;
+  } catch (error) {
+    console.warn("[st-chatu8] 无法播放 LLM 提示音", error);
+    return false;
+  }
+}
+
+function initLLMCompletionSoundSettings() {
+  const settings = extension_settings18[extensionName];
+  const toggle = $("#ch-llm_image_gen_sound_enabled");
+  const select = $("#ch-llm_image_gen_sound");
+  toggle.prop("checked", isSettingTrue3(settings.llm_image_gen_sound_enabled));
+  select.val(getLLMCompletionTone(settings));
+  // 键盘和标签点击由原生复选框处理，避免设置面板再次切换。
+  toggle.on("click", (event) => event.stopPropagation());
+  toggle.on("change", function() {
+    settings.llm_image_gen_sound_enabled = this.checked;
+    saveSettingsDebounced10();
+    if (this.checked) void unlockLLMCompletionAudio();
+  });
+  select.on("change", function() {
+    if (!llmCompletionTones.has(this.value)) return;
+    settings.llm_image_gen_sound = this.value;
+    saveSettingsDebounced10();
+  });
+  $("#ch-llm_image_gen_sound_preview").on("click", async () => {
+    if (!await playLLMCompletionSound(true)) {
+      toastr.warning("提示音无法播放，请检查浏览器的声音设置。");
+    }
+  });
+  // 刷新后借用户操作解锁音频，让后台请求结束时可以直接播放。
+  const unlockWhenEnabled = (event) => {
+    if (event.isTrusted && navigator.userActivation?.isActive !== false && llmCompletionAudio?.state !== "running"
+        && isSettingTrue3(settings.llm_image_gen_sound_enabled)) {
+      void unlockLLMCompletionAudio();
+    }
+  };
+  document.addEventListener("click", unlockWhenEnabled, true);
+  document.addEventListener("keydown", unlockWhenEnabled, true);
+}
+
 function loadInitialData() {
   loadLLMProfiles();
   loadTestContextProfiles();
@@ -38691,6 +38785,7 @@ function initLLMSettings() {
   registerEventListeners();
   registerCharDataImportListener();
   loadInitialData();
+  initLLMCompletionSoundSettings();
 }
 var init_llm = __esm({
   "utils/settings/llm.js"() {
@@ -40843,6 +40938,8 @@ async function processImageLikeRequest(el, gestureId, requestType, title, llmFun
       \u6807\u9898: toastInfo.title,
       \u7EA7\u522B: toastInfo.level
     });
+  } else if (requestType === LLMRequestTypes.IMAGE_GEN) {
+    void playLLMCompletionSound();
   }
   if (images.length > 0 && el) {
     debugLog(requestType, "\u63D2\u5165\u56FE\u7247\u6807\u7B7E\u5230 DOM");

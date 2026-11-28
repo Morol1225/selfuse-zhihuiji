@@ -129,6 +129,12 @@
     transform: translateX(22px);
 }
 
+/* 2026-11-29 Codex：为提示音开关显示键盘焦点。 */
+#st-chatu8-settings #ch-llm_image_gen_sound_enabled:focus-visible + .st-chatu8-slider {
+    outline: 2px solid var(--st-chatu8-accent-primary);
+    outline-offset: 3px;
+}
+
 /* Range Slider */
 #st-chatu8-settings .st-chatu8-range-container {
     display: flex;
